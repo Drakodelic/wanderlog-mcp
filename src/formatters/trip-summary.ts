@@ -285,9 +285,11 @@ function formatTransitBlock(block: TransitBlock, format: ResponseFormat): string
   const to = block.arrive?.place?.name ?? "?";
   const departDate = block.depart?.date ?? "";
   const departTime = block.depart?.time ? ` ${block.depart.time}` : "";
+  const note = quillToPlain(block.text).replace(/\s+/g, " ").trim();
 
   if (format === "concise") {
-    return `${icon} ${carrier} · ${from} → ${to}${departDate ? ` · ${departDate}${departTime}` : ""}`;
+    const noteLine = note ? `\n    📝 ${note.length > 120 ? `${note.slice(0, 117)}…` : note}` : "";
+    return `${icon} ${carrier} · ${from} → ${to}${departDate ? ` · ${departDate}${departTime}` : ""}${noteLine}`;
   }
   const parts = [
     `${icon} ${carrier}`,
@@ -296,6 +298,7 @@ function formatTransitBlock(block: TransitBlock, format: ResponseFormat): string
   ];
   if (block.confirmationNumber) parts.push(`conf. ${block.confirmationNumber}`);
   if (block.travelerNames?.length) parts.push(`pax: ${block.travelerNames.join(", ")}`);
+  if (note) parts.push(`📝 ${note}`);
   return parts.join(" · ");
 }
 

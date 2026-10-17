@@ -122,6 +122,18 @@ describe("transit block formatting", () => {
     }
   });
 
+  it("includes the transit block's note text", () => {
+    const withNote = {
+      ...(mkTransit("bus") as object),
+      text: { ops: [{ insert: "Be at stop H2 by 9:20. E-ticket emailed.\n" }] },
+    } as unknown as Block;
+    expect(formatBlockLine(withNote, "concise")).toContain("📝 Be at stop H2 by 9:20.");
+    expect(formatBlockLine(withNote, "detailed")).toContain(
+      "📝 Be at stop H2 by 9:20. E-ticket emailed.",
+    );
+    expect(formatBlockLine(mkTransit("bus"), "detailed")).not.toContain("📝");
+  });
+
   it("renders a rentalCar with pickup/dropoff", () => {
     const rental = {
       id: 2,
