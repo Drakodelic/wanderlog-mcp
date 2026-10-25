@@ -24,7 +24,7 @@ jobs:
       - name: Format proposed files for review
         run: |
           npm run format
-          for file in src/server.ts src/tools/advanced-state.ts src/tools/advanced-plan.ts src/tools/advanced-edits.ts src/tools/backup-trip.ts src/tools/restore-backup.ts tests/unit/advanced-plan.test.ts README.md .env.example; do
+          for file in src/server.ts src/tools/advanced-state.ts src/tools/advanced-plan.ts src/tools/advanced-edits.ts src/tools/backup-trip.ts src/tools/restore-backup.ts tests/unit/advanced-plan.test.ts tests/unit/advanced-state.test.ts README.md .env.example; do
             printf 'FMT_START:%s:' "$file"
             base64 -w0 "$file"
             printf ':FMT_END\n'
