@@ -5,12 +5,14 @@ import { resolvePlaceRef } from "../resolvers/place-ref.js";
 import type { TripPlan } from "../types.js";
 import { isPlaceBlock } from "../types.js";
 import { submitOp } from "./shared.js";
+import { loadState, listStateIds, newStateId, saveState, stateHash } from "./advanced-state.js";
 import {
-  loadState, listStateIds, newStateId, saveState, stateHash,
-} from "./advanced-state.js";
-import {
-  assertUnprotected, bookingProtected, parseProtection, planChanges,
-  type PlanAction, type ProtectionState,
+  assertUnprotected,
+  bookingProtected,
+  parseProtection,
+  planChanges,
+  type PlanAction,
+  type ProtectionState,
 } from "./advanced-plan.js";
 import { saveTripBackup } from "./backup-trip.js";
 
@@ -34,9 +36,10 @@ const timeAction = z.object({
   start_time: z.string().optional(),
   end_time: z.string().optional(),
 });
-const actionsSchema = z.array(z.discriminatedUnion("type", [
-  moveAction, reorderAction, timeAction,
-])).min(1).max(30);
+const actionsSchema = z
+  .array(z.discriminatedUnion("type", [moveAction, reorderAction, timeAction]))
+  .min(1)
+  .max(30);
 
 export const previewChangesInputSchema = {
   trip_key: z.string().min(1),
@@ -91,9 +94,14 @@ export const protectReservationsDescription = [
 ].join(" ");
 
 type PreviewRecord = {
-  trip_key: string; preview_id: string; created_at: string;
-  expires_at: string; source_hash: string; protected_hash: string;
-  actions: PlanAction[]; summary: Array<Record<string, string | number>>;
+  trip_key: string;
+  preview_id: string;
+  created_at: string;
+  expires_at: string;
+  source_hash: string;
+  protected_hash: string;
+  actions: PlanAction[];
+  summary: Array<Record<string, string | number>>;
   label: string;
 };
 
@@ -101,9 +109,10 @@ function result(value: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] };
 }
 function failure(error: unknown) {
-  const message = error instanceof WanderlogError
-    ? error.toUserMessage()
-    : "Unexpected error: " + (error as Error).message;
+  const message =
+    error instanceof WanderlogError
+      ? error.toUserMessage()
+      : "Unexpected error: " + (error as Error).message;
   return { content: [{ type: "text" as const, text: message }], isError: true };
 }
 
@@ -114,7 +123,10 @@ export async function getProtections(ctx: AppContext, trip: string): Promise<Pro
 }
 
 export async function createChangesPreview(
-  ctx: AppContext, tripKey: string, actions: PlanAction[], label?: string,
+  ctx: AppContext,
+  tripKey: string,
+  actions: PlanAction[],
+  label?: string,
 ) {
   const validated = actionsSchema.parse(actions);
   const trip = await ctx.tripCache.get(tripKey);
@@ -122,26 +134,35 @@ export async function createChangesPreview(
   const proposed = planChanges(trip, validated, locks.ids);
   const now = Date.now();
   const record: PreviewRecord = {
-    trip_key: tripKey, preview_id: newStateId(), created_at: new Date(now).toISOString(),
+    trip_key: tripKey,
+    preview_id: newStateId(),
+    created_at: new Date(now).toISOString(),
     expires_at: new Date(now + 30 * 60 * 1000).toISOString(),
     source_hash: stateHash(trip.itinerary.sections),
     protected_hash: stateHash(locks.ids),
-    actions: validated, summary: proposed.summary, label: label ?? "Itinerary change preview",
+    actions: validated,
+    summary: proposed.summary,
+    label: label ?? "Itinerary change preview",
   };
   await saveState(ctx, tripKey, "previews", record.preview_id, record);
   return {
-    preview_id: record.preview_id, expires_at: record.expires_at,
-    changes: record.summary, change_count: record.summary.length,
-    requires_approval: true, itinerary_modified: false,
+    preview_id: record.preview_id,
+    expires_at: record.expires_at,
+    changes: record.summary,
+    change_count: record.summary.length,
+    requires_approval: true,
+    itinerary_modified: false,
   };
 }
 
 export async function applyChangesPreview(
-  ctx: AppContext, tripKey: string, previewId: string, approved: boolean,
+  ctx: AppContext,
+  tripKey: string,
+  previewId: string,
+  approved: boolean,
 ) {
-  if (!approved) throw new WanderlogValidationError(
-    "Explicit confirmation required: confirm_apply=true.",
-  );
+  if (!approved)
+    throw new WanderlogValidationError("Explicit confirmation required: confirm_apply=true.");
   const preview = await loadState<PreviewRecord>(ctx, tripKey, "previews", previewId);
   if (preview.trip_key !== tripKey || Date.parse(preview.expires_at) <= Date.now()) {
     throw new WanderlogValidationError("Preview has expired or belongs to another trip.");
@@ -149,8 +170,10 @@ export async function applyChangesPreview(
   const output = await submitOp(ctx, tripKey, async (entry, submit) => {
     const current = entry.snapshot;
     const locks = await getProtections(ctx, tripKey);
-    if (stateHash(current.itinerary.sections) !== preview.source_hash ||
-        stateHash(locks.ids) !== preview.protected_hash) {
+    if (
+      stateHash(current.itinerary.sections) !== preview.source_hash ||
+      stateHash(locks.ids) !== preview.protected_hash
+    ) {
       throw new WanderlogValidationError(
         "The trip or protected place list changed; generate a fresh preview.",
       );
@@ -168,8 +191,11 @@ export async function applyChangesPreview(
       );
     }
     return {
-      applied: true, preview_id: previewId, changes: planned.summary,
-      no_op: planned.operations.length === 0, backup_id: backup.backup_id,
+      applied: true,
+      preview_id: previewId,
+      changes: planned.summary,
+      no_op: planned.operations.length === 0,
+      backup_id: backup.backup_id,
       verified_against_local_cache: true,
     };
   });
@@ -177,11 +203,14 @@ export async function applyChangesPreview(
 }
 
 export async function previewChanges(
-  ctx: AppContext, args: { trip_key: string; actions: PlanAction[]; label?: string },
+  ctx: AppContext,
+  args: { trip_key: string; actions: PlanAction[]; label?: string },
 ) {
   try {
     return result(await createChangesPreview(ctx, args.trip_key, args.actions, args.label));
-  } catch (error) { return failure(error); }
+  } catch (error) {
+    return failure(error);
+  }
 }
 
 export async function movePlaceToDay(
@@ -189,19 +218,38 @@ export async function movePlaceToDay(
   args: { trip_key: string; place: string; to_day: string; from_day?: string; position?: number },
 ) {
   try {
-    return result(await createChangesPreview(ctx, args.trip_key, [{
-      type: "move", place: args.place, from_day: args.from_day,
-      to_day: args.to_day, position: args.position,
-    }], "Move " + args.place + " to " + args.to_day));
-  } catch (error) { return failure(error); }
+    return result(
+      await createChangesPreview(
+        ctx,
+        args.trip_key,
+        [
+          {
+            type: "move",
+            place: args.place,
+            from_day: args.from_day,
+            to_day: args.to_day,
+            position: args.position,
+          },
+        ],
+        "Move " + args.place + " to " + args.to_day,
+      ),
+    );
+  } catch (error) {
+    return failure(error);
+  }
 }
 
 export async function bulkUpdate(
-  ctx: AppContext, args: { trip_key: string; preview_id: string; confirm_apply: boolean },
+  ctx: AppContext,
+  args: { trip_key: string; preview_id: string; confirm_apply: boolean },
 ) {
   try {
-    return result(await applyChangesPreview(ctx, args.trip_key, args.preview_id, args.confirm_apply));
-  } catch (error) { return failure(error); }
+    return result(
+      await applyChangesPreview(ctx, args.trip_key, args.preview_id, args.confirm_apply),
+    );
+  } catch (error) {
+    return failure(error);
+  }
 }
 
 export async function protectReservations(
@@ -245,12 +293,18 @@ export async function protectReservations(
       return { id, name: "(no longer in trip)" };
     });
     const automatic = trip.itinerary.sections.flatMap((section) =>
-      section.blocks.filter(isPlaceBlock).filter(bookingProtected)
+      section.blocks
+        .filter(isPlaceBlock)
+        .filter(bookingProtected)
         .map((block) => ({ id: block.id, name: block.place.name })),
     );
     return result({
-      action, manual, automatically_protected: automatic,
+      action,
+      manual,
+      automatically_protected: automatic,
       scope: "Advanced preview, bulk-update and restore tools only.",
     });
-  } catch (error) { return failure(error); }
+  } catch (error) {
+    return failure(error);
+  }
 }
