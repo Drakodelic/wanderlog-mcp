@@ -35,8 +35,7 @@ export function stateHash(value: unknown): string {
 }
 
 function statePath(ctx: AppContext, trip: string, kind: Kind, id: string) {
-  if (!/^[a-zA-Z0-9_-]{4,100}$/.test(trip) ||
-      !/^[a-zA-Z0-9_-]{1,100}$/.test(id)) {
+  if (!/^[a-zA-Z0-9_-]{4,100}$/.test(trip) || !/^[a-zA-Z0-9_-]{1,100}$/.test(id)) {
     throw new WanderlogValidationError("Invalid trip key or state identifier.");
   }
   if (!Number.isSafeInteger(ctx.userId) || !ctx.userId || ctx.userId < 1) {
@@ -51,7 +50,11 @@ export function newStateId(): string {
 }
 
 export async function saveState(
-  ctx: AppContext, trip: string, kind: Kind, id: string, value: unknown,
+  ctx: AppContext,
+  trip: string,
+  kind: Kind,
+  id: string,
+  value: unknown,
 ): Promise<void> {
   const key = stateKey();
   const path = statePath(ctx, trip, kind, id);
@@ -72,7 +75,10 @@ export async function saveState(
 }
 
 export async function loadState<T>(
-  ctx: AppContext, trip: string, kind: Kind, id: string,
+  ctx: AppContext,
+  trip: string,
+  kind: Kind,
+  id: string,
 ): Promise<T> {
   const key = stateKey();
   const path = statePath(ctx, trip, kind, id);
@@ -97,14 +103,13 @@ export async function loadState<T>(
   }
 }
 
-export async function listStateIds(
-  ctx: AppContext, trip: string, kind: Kind,
-): Promise<string[]> {
+export async function listStateIds(ctx: AppContext, trip: string, kind: Kind): Promise<string[]> {
   stateKey();
   const dir = dirname(statePath(ctx, trip, kind, "dummy"));
   try {
     const names = await readdir(dir);
-    return names.filter((name) => /^[a-zA-Z0-9_-]{1,100}\.json$/.test(name))
+    return names
+      .filter((name) => /^[a-zA-Z0-9_-]{1,100}\.json$/.test(name))
       .map((name) => name.slice(0, -5));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
