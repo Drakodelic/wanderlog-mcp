@@ -162,11 +162,15 @@ Example flow:
    places by their stable block IDs. Embedded hotel bookings with confirmation
    metadata are protected automatically. **These rules apply only to these new
    advanced tools**, not to the repository's existing mutation tools.
-5. Use `wanderlog_backup_trip` to create/list encrypted section backups.
-   `wanderlog_restore_backup` first returns a preview token; its `apply`
-   action additionally requires `confirm_destructive: true` and rejects changes
-   to protected places. Restores replace **itinerary sections only**—not trip
-   dates, expenses, journal data, or the entire trip.
+5. Use `wanderlog_backup_trip` to create/list an encrypted **full-trip
+   snapshot**, including itinerary sections, trip metadata, budget, and journal.
+   The tool reads the encrypted file back and validates its checksum before
+   reporting a successful backup. `wanderlog_restore_backup` first returns a
+   preview token; its `apply` action additionally requires
+   `confirm_destructive: true`, rejects protected bookings, and verifies the
+   result with a fresh Wanderlog read. **Restore is limited to itinerary
+   sections**. Budgets, journal entries, dates, and other fields are archived
+   for safekeeping but cannot yet be automatically restored.
 
 Previews expire after 30 minutes (restore previews after 20 minutes).
 Before applying changes, the tools compare a hash of the current itinerary and
@@ -175,7 +179,7 @@ backup. On an ambiguous write error, **do not retry immediately**: inspect the
 current trip and restore from a known good backup only after reviewing the
 restore preview.
 
-**Deployment limitation:** Local state is **not shared** between separate server
+**Deployment limitation:** Backup creation is not a substitute for off-host disaster recovery. An encrypted backup exists only in the configured local directory, with no export/download feature yet. Keep a separate secure copy of the storage directory and key. Local state is **not shared** between separate server
 instances and does not survive ephemeral container storage. Configure a persistent
 volume, and run advanced edits against a single instance or use an external state
 backend in a future change.
