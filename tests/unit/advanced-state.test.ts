@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AppContext } from "../../src/context.js";
@@ -26,6 +26,8 @@ const sampleTrip = (): TripPlan => ({
   createdAt: "",
   updatedAt: "",
   itinerary: {
+    budget: { expenses: [{ id: 99, amount: { amount: 1999, currencyCode: "JPY" }, description: "Train" }] },
+    journal: { summary: "Confidential journal" },
     sections: [
       {
         id: 100,
@@ -124,14 +126,28 @@ describe("encrypted local advanced state", () => {
     ).rejects.toThrow(/WANDERLOG_MCP_STATE_KEY/);
   });
 
-  it("backs up all section fields and detects tampered backup data", async () => {
+  it("backs up and verifies full-trip metadata including budgets and journal", async () => {
     const ctx = context();
     const original = sampleTrip();
     const metadata = await saveTripBackup(ctx, original, "Before changes");
     const restored = await readTripBackup(ctx, original.key, metadata.backup_id);
-    expect(restored.sha256).toBe(stateHash(original.itinerary.sections));
-    expect(restored.sections).toEqual(original.itinerary.sections);
+    expect(restored.sha256).toBe(stateHash(original));
+    expect(restored.snapshot).toEqual(original);
+    expect(restored.snapshot.itinerary.budget?.expenses).toHaveLength(1);
+    expect(restored.snapshot.itinerary.journal?.summary).toBe("Confidential journal");
     expect(restored.label).toBe("Before changes");
+  });
+
+  it("rejects tampering with encrypted backup contents", async () => {
+    const ctx = context();
+    const backup = await saveTripBackup(ctx, sampleTrip());
+    const path = join(directory, "123", "exampletrip", "backups", backup.backup_id + ".json");
+    const encrypted = JSON.parse(await readFile(path, "utf8"));
+    encrypted.ciphertext = "AAAA" + encrypted.ciphertext.slice(4);
+    await writeFile(path, JSON.stringify(encrypted), "utf8");
+    await expect(readTripBackup(ctx, "exampletrip", backup.backup_id)).rejects.toThrow(
+      /decrypt|verify/,
+    );
   });
 
   it("does not allow a restore preview to overwrite an existing flight reservation", async () => {
