@@ -26,7 +26,9 @@ const sampleTrip = (): TripPlan => ({
   createdAt: "",
   updatedAt: "",
   itinerary: {
-    budget: { expenses: [{ id: 99, amount: { amount: 1999, currencyCode: "JPY" }, description: "Train" }] },
+    budget: {
+      expenses: [{ id: 99, amount: { amount: 1999, currencyCode: "JPY" }, description: "Train" }],
+    },
     journal: { summary: "Confidential journal" },
     sections: [
       {
