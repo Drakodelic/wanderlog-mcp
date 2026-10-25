@@ -2,13 +2,25 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AppContext } from "./context.js";
 import { VERSION } from "./version.js";
 import {
-  previewChanges, previewChangesDescription, previewChangesInputSchema,
-  bulkUpdate, bulkUpdateDescription, bulkUpdateInputSchema,
-  movePlaceToDay, movePlaceToDayDescription, movePlaceToDayInputSchema,
-  protectReservations, protectReservationsDescription, protectReservationsInputSchema,
+  previewChanges,
+  previewChangesDescription,
+  previewChangesInputSchema,
+  bulkUpdate,
+  bulkUpdateDescription,
+  bulkUpdateInputSchema,
+  movePlaceToDay,
+  movePlaceToDayDescription,
+  movePlaceToDayInputSchema,
+  protectReservations,
+  protectReservationsDescription,
+  protectReservationsInputSchema,
 } from "./tools/advanced-edits.js";
 import { backupTrip, backupTripDescription, backupTripInputSchema } from "./tools/backup-trip.js";
-import { restoreBackup, restoreBackupDescription, restoreBackupInputSchema } from "./tools/restore-backup.js";
+import {
+  restoreBackup,
+  restoreBackupDescription,
+  restoreBackupInputSchema,
+} from "./tools/restore-backup.js";
 
 import {
   addChecklist,
@@ -243,7 +255,8 @@ export function buildServer(ctx: AppContext): McpServer {
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
     requireAuth(ctx, async (args) =>
-      movePlaceToDay(ctx, args as Parameters<typeof movePlaceToDay>[1])),
+      movePlaceToDay(ctx, args as Parameters<typeof movePlaceToDay>[1]),
+    ),
   );
 
   server.registerTool(
@@ -255,7 +268,8 @@ export function buildServer(ctx: AppContext): McpServer {
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
     requireAuth(ctx, async (args) =>
-      previewChanges(ctx, args as Parameters<typeof previewChanges>[1])),
+      previewChanges(ctx, args as Parameters<typeof previewChanges>[1]),
+    ),
   );
 
   server.registerTool(
@@ -266,8 +280,7 @@ export function buildServer(ctx: AppContext): McpServer {
       inputSchema: bulkUpdateInputSchema,
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
-    requireAuth(ctx, async (args) =>
-      bulkUpdate(ctx, args as Parameters<typeof bulkUpdate>[1])),
+    requireAuth(ctx, async (args) => bulkUpdate(ctx, args as Parameters<typeof bulkUpdate>[1])),
   );
 
   server.registerTool(
@@ -279,7 +292,8 @@ export function buildServer(ctx: AppContext): McpServer {
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
     requireAuth(ctx, async (args) =>
-      protectReservations(ctx, args as Parameters<typeof protectReservations>[1])),
+      protectReservations(ctx, args as Parameters<typeof protectReservations>[1]),
+    ),
   );
 
   server.registerTool(
@@ -290,8 +304,7 @@ export function buildServer(ctx: AppContext): McpServer {
       inputSchema: backupTripInputSchema,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    requireAuth(ctx, async (args) =>
-      backupTrip(ctx, args as Parameters<typeof backupTrip>[1])),
+    requireAuth(ctx, async (args) => backupTrip(ctx, args as Parameters<typeof backupTrip>[1])),
   );
 
   server.registerTool(
@@ -303,7 +316,8 @@ export function buildServer(ctx: AppContext): McpServer {
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
     requireAuth(ctx, async (args) =>
-      restoreBackup(ctx, args as Parameters<typeof restoreBackup>[1])),
+      restoreBackup(ctx, args as Parameters<typeof restoreBackup>[1]),
+    ),
   );
 
   server.registerTool(
