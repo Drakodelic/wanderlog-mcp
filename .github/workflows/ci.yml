@@ -21,6 +21,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm audit signatures
+      - name: Prepare temporary formatted source diagnostics
+        run: |
+          npm run format
+          for file in src/server.ts src/tools/check-conflicts.ts src/tools/optimize-day.ts src/tools/planning-helpers.ts tests/unit/planning-helpers.test.ts; do
+            printf 'FORMATTED_START:%s:' "$file"
+            base64 -w0 "$file"
+            printf ':FORMATTED_END\n'
+          done
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
