@@ -102,9 +102,9 @@ and a ryokan in Shinjuku."
 | `wanderlog_move_place_to_day`         | Preview a metadata-preserving move to another day or custom list                                  |
 | `wanderlog_preview_changes`           | Validate batch edits and create an expiring approval token                                        |
 | `wanderlog_bulk_update`               | Apply an approved preview after checking changes and creating a backup                            |
-| `wanderlog_protect_reservations`       | Manage ID-based advanced-tool protection rules for existing places                                |
-| `wanderlog_backup_trip`               | Create or list encrypted local itinerary section backups                                         |
-| `wanderlog_restore_backup`            | Preview and explicitly restore sections from an encrypted backup                                 |
+| `wanderlog_protect_reservations`      | Manage ID-based advanced-tool protection rules for existing places                                |
+| `wanderlog_backup_trip`               | Create or list encrypted local itinerary section backups                                          |
+| `wanderlog_restore_backup`            | Preview and explicitly restore sections from an encrypted backup                                  |
 | `wanderlog_get_trip_url`              | Get a shareable wanderlog.com link                                                                |
 | `wanderlog_get_trip_forwarding_email` | Get a trip's `trip+<id>@wanderlog.com` import address                                             |
 | `wanderlog_search_places`             | Find real-world places near a trip's destination                                                  |
