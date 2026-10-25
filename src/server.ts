@@ -1,6 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AppContext } from "./context.js";
 import { VERSION } from "./version.js";
+import { optimizeDay, optimizeDayDescription, optimizeDayInputSchema } from "./tools/optimize-day.js";
+import { checkConflicts, checkConflictsDescription, checkConflictsInputSchema } from "./tools/check-conflicts.js";
 import {
   addChecklist,
   addChecklistDescription,
@@ -223,6 +225,30 @@ export function buildServer(ctx: AppContext): McpServer {
       inputSchema: getTripInputSchema,
     },
     requireAuth(ctx, async (args) => getTrip(ctx, args as Parameters<typeof getTrip>[1])),
+  );
+
+  server.registerTool(
+    "wanderlog_optimize_day",
+    {
+      title: "Suggest a proximity-based itinerary order",
+      description: optimizeDayDescription,
+      inputSchema: optimizeDayInputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false },
+    },
+    requireAuth(ctx, async (args) => optimizeDay(ctx, args as Parameters<typeof optimizeDay>[1])),
+  );
+
+  server.registerTool(
+    "wanderlog_check_conflicts",
+    {
+      title: "Check itinerary scheduling conflicts",
+      description: checkConflictsDescription,
+      inputSchema: checkConflictsInputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false },
+    },
+    requireAuth(ctx, async (args) =>
+      checkConflicts(ctx, args as Parameters<typeof checkConflicts>[1]),
+    ),
   );
 
   server.registerTool(
