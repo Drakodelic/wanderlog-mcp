@@ -48,6 +48,7 @@ export async function readTripBackup(
   const backup = await loadState<BackupRecord>(ctx, trip, "backups", backupId);
   if (
     backup.trip_key !== trip ||
+    backup.backup_id !== backupId ||
     backup.snapshot?.key !== trip ||
     !Array.isArray(backup.snapshot.itinerary?.sections) ||
     stateHash(backup.snapshot) !== backup.sha256
