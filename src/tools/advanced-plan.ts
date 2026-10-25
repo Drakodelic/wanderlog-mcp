@@ -26,9 +26,9 @@ export function parseProtection(value: unknown): ProtectionState {
 }
 
 export function bookingProtected(block: PlaceBlock): boolean {
-  return Boolean(block.hotel && (
-    block.hotel.confirmationNumber || block.hotel.checkIn || block.hotel.checkOut
-  ));
+  return Boolean(
+    block.hotel && (block.hotel.confirmationNumber || block.hotel.checkIn || block.hotel.checkOut),
+  );
 }
 
 export function assertUnprotected(block: PlaceBlock, protectedIds: number[]): void {
@@ -46,8 +46,10 @@ function dayOrSection(trip: TripPlan, ref: string): number {
     if (result.kind !== "unique") {
       throw new WanderlogValidationError("Custom section not found or ambiguous: " + ref);
     }
-    if (result.match.section.mode !== "placeList" ||
-        ["hotels", "flights", "transit", "rentalCars"].includes(result.match.section.type)) {
+    if (
+      result.match.section.mode !== "placeList" ||
+      ["hotels", "flights", "transit", "rentalCars"].includes(result.match.section.type)
+    ) {
       throw new WanderlogValidationError("This system section cannot receive moved places.");
     }
     return result.match.index;
@@ -63,7 +65,9 @@ function locate(trip: TripPlan, ref: string, context?: string) {
   }
   const match = result.match;
   if (context && dayOrSection(trip, context) !== match.sectionIndex) {
-    throw new WanderlogValidationError("Place is not in the specified source day or section: " + ref);
+    throw new WanderlogValidationError(
+      "Place is not in the specified source day or section: " + ref,
+    );
   }
   return match as typeof match & { block: PlaceBlock };
 }
@@ -80,7 +84,9 @@ export type PlannedChange = {
 
 /** A pure multi-action simulator. No network or local state I/O. */
 export function planChanges(
-  trip: TripPlan, actions: PlanAction[], protectedIds: number[],
+  trip: TripPlan,
+  actions: PlanAction[],
+  protectedIds: number[],
 ): PlannedChange {
   if (!Array.isArray(actions) || actions.length < 1 || actions.length > 30) {
     throw new WanderlogValidationError("Provide 1 to 30 actions.");
@@ -98,8 +104,13 @@ export function planChanges(
         throw new WanderlogValidationError("Destination must be a different valid section.");
       }
       const to = working.itinerary.sections[destination]!;
-      if (to.blocks.some((block) => isPlaceBlock(block) &&
-        block.place.name.toLocaleLowerCase() === match.block.place.name.toLocaleLowerCase())) {
+      if (
+        to.blocks.some(
+          (block) =>
+            isPlaceBlock(block) &&
+            block.place.name.toLocaleLowerCase() === match.block.place.name.toLocaleLowerCase(),
+        )
+      ) {
         throw new WanderlogValidationError("Destination already contains a place with this name.");
       }
       const position = action.position === undefined ? to.blocks.length : action.position - 1;
@@ -108,18 +119,23 @@ export function planChanges(
       }
       const copy = structuredClone(match.block);
       const deletion: Json0Op = {
-        p: ["itinerary", "sections", match.sectionIndex, "blocks", match.blockIndex], ld: copy,
+        p: ["itinerary", "sections", match.sectionIndex, "blocks", match.blockIndex],
+        ld: copy,
       };
       const insertion: Json0Op = {
-        p: ["itinerary", "sections", destination, "blocks", position], li: copy,
+        p: ["itinerary", "sections", destination, "blocks", position],
+        li: copy,
       };
       operations.push(deletion, insertion);
       match.section.blocks.splice(match.blockIndex, 1);
       to.blocks.splice(position, 0, copy);
       summary.push({
-        type: "move", place: copy.place.name, id: copy.id,
+        type: "move",
+        place: copy.place.name,
+        id: copy.id,
         from: match.section.date || match.section.heading,
-        to: to.date || to.heading, position: position + 1,
+        to: to.date || to.heading,
+        position: position + 1,
       });
     } else if (action.type === "reorder") {
       const match = locate(working, action.place, action.day);
@@ -137,8 +153,11 @@ export function planChanges(
         match.section.blocks.splice(target, 0, moved!);
       }
       summary.push({
-        type: "reorder", place: match.block.place.name, id: match.block.id,
-        day: action.day, position: action.position,
+        type: "reorder",
+        place: match.block.place.name,
+        id: match.block.id,
+        day: action.day,
+        position: action.position,
       });
     } else if (action.type === "set_time") {
       const match = locate(working, action.place, action.day);
@@ -147,7 +166,8 @@ export function planChanges(
         throw new WanderlogValidationError("Provide at least one start or end time.");
       }
       for (const [field, property] of [
-        ["start_time", "startTime"], ["end_time", "endTime"],
+        ["start_time", "startTime"],
+        ["end_time", "endTime"],
       ] as const) {
         const value = action[field];
         if (value === undefined) continue;
@@ -162,7 +182,12 @@ export function planChanges(
         operations.push(operation);
         match.block[property] = value;
       }
-      summary.push({ type: "set_time", place: match.block.place.name, id: match.block.id, day: action.day });
+      summary.push({
+        type: "set_time",
+        place: match.block.place.name,
+        id: match.block.id,
+        day: action.day,
+      });
     } else {
       throw new WanderlogValidationError("Unsupported action type.");
     }
@@ -176,11 +201,16 @@ export function planChanges(
   // Verify protected IDs are still present and byte-for-byte unchanged in the target snapshot.
   for (const section of trip.itinerary.sections) {
     for (const block of section.blocks) {
-      if (!isPlaceBlock(block) || (!bookingProtected(block) && !protectedIds.includes(block.id))) continue;
+      if (!isPlaceBlock(block) || (!bookingProtected(block) && !protectedIds.includes(block.id)))
+        continue;
       const before = findBlockById(trip, block.id);
       const after = findBlockById(working, block.id);
-      if (!after || !before || after.section.id !== before.section.id ||
-          stateHash(after.block) !== stateHash(before.block)) {
+      if (
+        !after ||
+        !before ||
+        after.section.id !== before.section.id ||
+        stateHash(after.block) !== stateHash(before.block)
+      ) {
         throw new WanderlogValidationError("Planned changes affect a protected booking or place.");
       }
     }
