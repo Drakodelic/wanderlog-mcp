@@ -17,12 +17,18 @@ export type BackupRecord = {
 };
 
 export async function saveTripBackup(
-  ctx: AppContext, trip: TripPlan, label = "Manual snapshot",
+  ctx: AppContext,
+  trip: TripPlan,
+  label = "Manual snapshot",
 ): Promise<Omit<BackupRecord, "sections">> {
   const record: BackupRecord = {
-    backup_id: newStateId(), trip_key: trip.key, created_at: new Date().toISOString(),
-    label: label.slice(0, 120), trip_title: trip.title,
-    start_date: trip.startDate, end_date: trip.endDate,
+    backup_id: newStateId(),
+    trip_key: trip.key,
+    created_at: new Date().toISOString(),
+    label: label.slice(0, 120),
+    trip_title: trip.title,
+    start_date: trip.startDate,
+    end_date: trip.endDate,
     sections: structuredClone(trip.itinerary.sections),
     sha256: stateHash(trip.itinerary.sections),
   };
@@ -32,11 +38,16 @@ export async function saveTripBackup(
 }
 
 export async function readTripBackup(
-  ctx: AppContext, trip: string, backupId: string,
+  ctx: AppContext,
+  trip: string,
+  backupId: string,
 ): Promise<BackupRecord> {
   const backup = await loadState<BackupRecord>(ctx, trip, "backups", backupId);
-  if (backup.trip_key !== trip || !Array.isArray(backup.sections) ||
-      stateHash(backup.sections) !== backup.sha256) {
+  if (
+    backup.trip_key !== trip ||
+    !Array.isArray(backup.sections) ||
+    stateHash(backup.sections) !== backup.sha256
+  ) {
     throw new WanderlogValidationError("Backup integrity check failed.");
   }
   return backup;
@@ -76,9 +87,10 @@ export async function backupTrip(ctx: AppContext, args: Args) {
     }
     return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
   } catch (error) {
-    const message = error instanceof WanderlogError
-      ? error.toUserMessage()
-      : "Unexpected error: " + (error as Error).message;
+    const message =
+      error instanceof WanderlogError
+        ? error.toUserMessage()
+        : "Unexpected error: " + (error as Error).message;
     return { content: [{ type: "text" as const, text: message }], isError: true };
   }
 }
