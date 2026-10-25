@@ -111,6 +111,27 @@ describe("read-only itinerary planning", () => {
     expect(result.missing_geocoordinates).toEqual(["Without coordinates"]);
   });
 
+  it("ignores unusable coordinates without creating false distance estimates", () => {
+    const source = day([
+      place(1, "Valid stop", 139.7),
+      {
+        ...place(2, "Invalid coordinates", 139.8),
+        place: {
+          name: "Invalid coordinates",
+          place_id: "example-2",
+          geometry: { location: { lat: 400, lng: 139.8 } },
+        },
+      },
+      place(3, "Missing coordinates"),
+    ]);
+    const result = suggestProximityOrder(source);
+    expect(result.missing_geocoordinates).toEqual([
+      "Invalid coordinates",
+      "Missing coordinates",
+    ]);
+    expect(result.current_order).toEqual(result.proposed_proximity_order);
+  });
+
   it("does not treat a Disney Store as a booked theme park", () => {
     const result = suggestProximityOrder(day([
       place(1, "Disney Store Shibuya", 139.0),
