@@ -19,8 +19,14 @@ const LIMITATIONS =
 
 function coordinates(place: PlaceBlock): Point | null {
   const point = place.place.geometry?.location;
-  if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng) ||
-      Math.abs(point.lat) > 90 || Math.abs(point.lng) > 180) return null;
+  if (
+    !point ||
+    !Number.isFinite(point.lat) ||
+    !Number.isFinite(point.lng) ||
+    Math.abs(point.lat) > 90 ||
+    Math.abs(point.lng) > 180
+  )
+    return null;
   return { lat: point.lat, lng: point.lng };
 }
 
@@ -28,7 +34,8 @@ export function straightLineKm(a: Point, b: Point): number {
   const rad = Math.PI / 180;
   const dLat = (b.lat - a.lat) * rad;
   const dLng = (b.lng - a.lng) * rad;
-  const h = Math.sin(dLat / 2) ** 2 +
+  const h =
+    Math.sin(dLat / 2) ** 2 +
     Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
   return 12742 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
@@ -42,13 +49,21 @@ function timeMinutes(time?: string): number | null {
 /** Only obvious bookings and timed visits are anchored; this code never writes data. */
 function isFixed(block: PlaceBlock): boolean {
   const namedBooking = /teamlabs?|disneyland|disneysea|universal studios/i.test(block.place.name);
-  return Boolean(block.startTime || block.endTime ||
-    block.hotel?.confirmationNumber || block.hotel?.checkIn || namedBooking);
+  return Boolean(
+    block.startTime ||
+    block.endTime ||
+    block.hotel?.confirmationNumber ||
+    block.hotel?.checkIn ||
+    namedBooking,
+  );
 }
 
 function placesIn(section: Section): PlanningPlace[] {
   return section.blocks.filter(isPlaceBlock).map((block) => ({
-    block, name: block.place.name, point: coordinates(block), fixed: isFixed(block),
+    block,
+    name: block.place.name,
+    point: coordinates(block),
+    fixed: isFixed(block),
   }));
 }
 
@@ -67,18 +82,27 @@ export function checkDayConflicts(section: Section) {
   const places = placesIn(section);
   const issues: PlanningIssue[] = [];
   if (places.length > 7) {
-    issues.push({ level: "warning", kind: "busy_day", message: places.length + " places may make this day rushed." });
+    issues.push({
+      level: "warning",
+      kind: "busy_day",
+      message: places.length + " places may make this day rushed.",
+    });
   }
   const timed: { place: PlanningPlace; start: number; end: number | null }[] = [];
   for (const place of places) {
     const { startTime, endTime } = place.block;
     const start = timeMinutes(startTime);
     const end = timeMinutes(endTime);
-    if ((startTime && start === null) || (endTime && end === null) ||
+    if (
+      (startTime && start === null) ||
+      (endTime && end === null) ||
       (!startTime && !!endTime) ||
-      (start !== null && end !== null && end <= start)) {
+      (start !== null && end !== null && end <= start)
+    ) {
       issues.push({
-        level: "error", kind: "invalid_time", message: "Invalid time range for " + place.name + ".",
+        level: "error",
+        kind: "invalid_time",
+        message: "Invalid time range for " + place.name + ".",
       });
     }
     if (start !== null) timed.push({ place, start, end });
@@ -90,8 +114,10 @@ export function checkDayConflicts(section: Section) {
       const b = timed[j]!;
       if (a.end !== null && a.end > b.start) {
         issues.push({
-          level: "error", kind: "time_overlap",
-          between: [a.place.name, b.place.name], message: "Scheduled activities overlap.",
+          level: "error",
+          kind: "time_overlap",
+          between: [a.place.name, b.place.name],
+          message: "Scheduled activities overlap.",
         });
       }
     }
@@ -102,9 +128,11 @@ export function checkDayConflicts(section: Section) {
       const walkMinutes = Math.ceil((km / 4.5) * 60 * 1.3);
       if (a.end + walkMinutes > next.start) {
         issues.push({
-          level: "warning", kind: "transfer_risk",
+          level: "warning",
+          kind: "transfer_risk",
           between: [a.place.name, next.place.name],
-          straight_line_km: round2(km), walk_heuristic_minutes: walkMinutes,
+          straight_line_km: round2(km),
+          walk_heuristic_minutes: walkMinutes,
           message: "Approximate walking transfer may not fit; check an actual route.",
         });
       }
@@ -142,9 +170,14 @@ export function suggestProximityOrder(section: Section) {
       const selected: PlanningPlace[] = [];
       const predecessor = suggested[start - 1];
       const first = predecessor?.point
-        ? remaining.reduce((best, p) =>
-          straightLineKm(predecessor.point!, p.point!) <
-            straightLineKm(predecessor.point!, best.point!) ? p : best, remaining[0]!)
+        ? remaining.reduce(
+            (best, p) =>
+              straightLineKm(predecessor.point!, p.point!) <
+              straightLineKm(predecessor.point!, best.point!)
+                ? p
+                : best,
+            remaining[0]!,
+          )
         : remaining[0]!;
       selected.push(first);
       remaining.splice(remaining.indexOf(first), 1);
@@ -152,8 +185,11 @@ export function suggestProximityOrder(section: Section) {
         const last = selected[selected.length - 1]!;
         let nearestIndex = 0;
         for (let i = 1; i < remaining.length; i++) {
-          if (straightLineKm(last.point!, remaining[i]!.point!) <
-            straightLineKm(last.point!, remaining[nearestIndex]!.point!)) nearestIndex = i;
+          if (
+            straightLineKm(last.point!, remaining[i]!.point!) <
+            straightLineKm(last.point!, remaining[nearestIndex]!.point!)
+          )
+            nearestIndex = i;
         }
         selected.push(remaining.splice(nearestIndex, 1)[0]!);
       }
