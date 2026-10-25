@@ -1,8 +1,16 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AppContext } from "./context.js";
 import { VERSION } from "./version.js";
-import { optimizeDay, optimizeDayDescription, optimizeDayInputSchema } from "./tools/optimize-day.js";
-import { checkConflicts, checkConflictsDescription, checkConflictsInputSchema } from "./tools/check-conflicts.js";
+import {
+  optimizeDay,
+  optimizeDayDescription,
+  optimizeDayInputSchema,
+} from "./tools/optimize-day.js";
+import {
+  checkConflicts,
+  checkConflictsDescription,
+  checkConflictsInputSchema,
+} from "./tools/check-conflicts.js";
 import {
   addChecklist,
   addChecklistDescription,
