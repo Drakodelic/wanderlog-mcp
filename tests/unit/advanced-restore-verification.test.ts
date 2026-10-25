@@ -10,22 +10,41 @@ import { saveTripBackup } from "../../src/tools/backup-trip.js";
 import { restoreBackup } from "../../src/tools/restore-backup.js";
 
 const baseTrip = (): TripPlan => ({
-  id: 123, key: "demo-trip", title: "Demonstration", userId: 123,
-  privacy: "private", startDate: "2026-11-21", endDate: "2026-11-22",
-  days: 2, placeCount: 1, schemaVersion: 2, createdAt: "", updatedAt: "",
+  id: 123,
+  key: "demo-trip",
+  title: "Demonstration",
+  userId: 123,
+  privacy: "private",
+  startDate: "2026-11-21",
+  endDate: "2026-11-22",
+  days: 2,
+  placeCount: 1,
+  schemaVersion: 2,
+  createdAt: "",
+  updatedAt: "",
   itinerary: {
     sections: [
       {
-        id: 100, type: "normal", mode: "dayPlan", heading: "Arrival",
+        id: 100,
+        type: "normal",
+        mode: "dayPlan",
+        heading: "Arrival",
         date: "2026-11-21",
-        blocks: [{
-          id: 1, type: "place",
-          place: { name: "Museum", place_id: "museum-1" },
-        }],
+        blocks: [
+          {
+            id: 1,
+            type: "place",
+            place: { name: "Museum", place_id: "museum-1" },
+          },
+        ],
       },
       {
-        id: 200, type: "flights", mode: "placeList", heading: "Flights",
-        date: null, blocks: [{ id: 7, type: "flight" }],
+        id: 200,
+        type: "flights",
+        mode: "placeList",
+        heading: "Flights",
+        date: null,
+        blocks: [{ id: 7, type: "flight" }],
       },
     ],
   },
@@ -71,17 +90,25 @@ function simulatedContext(persistSubmit: boolean) {
     },
   };
   const entry = {
-    get snapshot() { return cached; },
-    get version() { return versions; },
+    get snapshot() {
+      return cached;
+    },
+    get version() {
+      return versions;
+    },
     client,
   };
   const ctx = {
     userId: 123,
     tripCache: {
-      get: async () => invalidated ? structuredClone(remote) : cached,
+      get: async () => (invalidated ? structuredClone(remote) : cached),
       getEntry: async () => entry,
-      applyLocalOp: (_: string, ops: Json0Op[]) => { cached = applyOp(cached, ops); },
-      invalidate: () => { invalidated = true; },
+      applyLocalOp: (_: string, ops: Json0Op[]) => {
+        cached = applyOp(cached, ops);
+      },
+      invalidate: () => {
+        invalidated = true;
+      },
     },
     pool: { get: () => client },
   } as unknown as AppContext;
@@ -93,14 +120,19 @@ describe("restore remote verification", () => {
     const { ctx, initial, getRemote } = simulatedContext(true);
     const backup = await saveTripBackup(ctx, initial);
     const preview = await restoreBackup(ctx, {
-      trip_key: "demo-trip", backup_id: backup.backup_id, action: "preview",
+      trip_key: "demo-trip",
+      backup_id: backup.backup_id,
+      action: "preview",
     });
     expect(preview.isError).toBeUndefined();
     const info = JSON.parse(preview.content[0]!.text);
     expect(info.can_apply).toBe(true);
     const applied = await restoreBackup(ctx, {
-      trip_key: "demo-trip", backup_id: backup.backup_id, action: "apply",
-      restore_token: info.restore_token, confirm_destructive: true,
+      trip_key: "demo-trip",
+      backup_id: backup.backup_id,
+      action: "apply",
+      restore_token: info.restore_token,
+      confirm_destructive: true,
     });
     expect(applied.isError).toBeUndefined();
     const receipt = JSON.parse(applied.content[0]!.text);
@@ -112,12 +144,17 @@ describe("restore remote verification", () => {
     const { ctx, initial, getRemote } = simulatedContext(false);
     const backup = await saveTripBackup(ctx, initial);
     const preview = await restoreBackup(ctx, {
-      trip_key: "demo-trip", backup_id: backup.backup_id, action: "preview",
+      trip_key: "demo-trip",
+      backup_id: backup.backup_id,
+      action: "preview",
     });
     const info = JSON.parse(preview.content[0]!.text);
     const applied = await restoreBackup(ctx, {
-      trip_key: "demo-trip", backup_id: backup.backup_id, action: "apply",
-      restore_token: info.restore_token, confirm_destructive: true,
+      trip_key: "demo-trip",
+      backup_id: backup.backup_id,
+      action: "apply",
+      restore_token: info.restore_token,
+      confirm_destructive: true,
     });
     expect(applied.isError).toBe(true);
     expect(applied.content[0]!.text).toMatch(/fresh remote read/);
@@ -129,7 +166,9 @@ describe("restore remote verification", () => {
     initial.startDate = "2026-11-20";
     const backup = await saveTripBackup(ctx, initial);
     const preview = await restoreBackup(ctx, {
-      trip_key: "demo-trip", backup_id: backup.backup_id, action: "preview",
+      trip_key: "demo-trip",
+      backup_id: backup.backup_id,
+      action: "preview",
     });
     const result = JSON.parse(preview.content[0]!.text);
     expect(result.matches_trip_dates).toBe(false);
