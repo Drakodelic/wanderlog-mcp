@@ -12,7 +12,7 @@ export type BackupRecord = {
   trip_title: string;
   start_date: string;
   end_date: string;
-  sections: TripPlan["itinerary"]["sections"];
+  snapshot: TripPlan;
   sha256: string;
 };
 
@@ -29,11 +29,14 @@ export async function saveTripBackup(
     trip_title: trip.title,
     start_date: trip.startDate,
     end_date: trip.endDate,
-    sections: structuredClone(trip.itinerary.sections),
-    sha256: stateHash(trip.itinerary.sections),
+    snapshot: structuredClone(trip),
+    sha256: stateHash(trip),
   };
   await saveState(ctx, trip.key, "backups", record.backup_id, record);
-  const { sections: _sections, ...info } = record;
+  // Verify the encrypted archive is readable and its full-trip checksum matches
+  // before claiming the backup was created successfully.
+  await readTripBackup(ctx, trip.key, record.backup_id);
+  const { snapshot: _snapshot, ...info } = record;
   return info;
 }
 
@@ -45,8 +48,9 @@ export async function readTripBackup(
   const backup = await loadState<BackupRecord>(ctx, trip, "backups", backupId);
   if (
     backup.trip_key !== trip ||
-    !Array.isArray(backup.sections) ||
-    stateHash(backup.sections) !== backup.sha256
+    backup.snapshot?.key !== trip ||
+    !Array.isArray(backup.snapshot.itinerary?.sections) ||
+    stateHash(backup.snapshot) !== backup.sha256
   ) {
     throw new WanderlogValidationError("Backup integrity check failed.");
   }
@@ -60,10 +64,11 @@ export const backupTripInputSchema = {
 };
 
 export const backupTripDescription = [
-  "Create or list encrypted local itinerary backups. Backups preserve the full section",
-  "objects, including notes, times, places, and reservation metadata.",
+  "Create or list encrypted full-trip snapshots, preserving itinerary sections,",
+  "budgets, journal entries, trip metadata, notes, and reservation details.",
   "Requires WANDERLOG_MCP_STATE_KEY and persistent filesystem storage.",
-  "The encryption key and local files must be retained to restore backups later.",
+  "Restore currently restores itinerary sections only; other data is archived but not restored.",
+  "The encryption key and persistent local files must be retained for recovery.",
   "No Wanderlog itinerary modifications are performed.",
 ].join(" ");
 
@@ -74,16 +79,19 @@ export async function backupTrip(ctx: AppContext, args: Args) {
     let result: unknown;
     if ((args.action ?? "create") === "list") {
       const ids = await listStateIds(ctx, args.trip_key, "backups");
-      const backups: Array<Omit<BackupRecord, "sections">> = [];
+      const backups: Array<Omit<BackupRecord, "snapshot">> = [];
       for (const id of ids) {
         const backup = await readTripBackup(ctx, args.trip_key, id);
-        const { sections: _sections, ...info } = backup;
+        const { snapshot: _snapshot, ...info } = backup;
         backups.push(info);
       }
-      result = { trip_key: args.trip_key, backups };
+      result = { trip_key: args.trip_key, backups, restore_scope: "itinerary.sections",
+        storage_notice: "Retain WANDERLOG_MCP_STATE_KEY and use a persistent local volume." };
     } else {
       const trip = await ctx.tripCache.get(args.trip_key);
-      result = { created: true, backup: await saveTripBackup(ctx, trip, args.label) };
+      result = { created: true, backup: await saveTripBackup(ctx, trip, args.label),
+        archived_scope: "full TripPlan snapshot", restore_scope: "itinerary.sections",
+        storage_notice: "A persistent local volume and the same encryption key are required for later restores." };
     }
     return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
   } catch (error) {
