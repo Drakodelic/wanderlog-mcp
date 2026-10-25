@@ -18,9 +18,7 @@ function place(
     place: {
       name,
       place_id: "example-" + id,
-      ...(lng === undefined
-        ? {}
-        : { geometry: { location: { lat: 35.7, lng } } }),
+      ...(lng === undefined ? {} : { geometry: { location: { lat: 35.7, lng } } }),
     },
     ...times,
   };
@@ -47,18 +45,18 @@ describe("read-only itinerary planning", () => {
   });
 
   it("reports overlapping scheduled visits", () => {
-    const result = checkDayConflicts(day([
-      place(1, "Museum", 139.7, { startTime: "09:00", endTime: "10:30" }),
-      place(2, "Garden", 139.7, { startTime: "10:00", endTime: "11:00" }),
-    ]));
+    const result = checkDayConflicts(
+      day([
+        place(1, "Museum", 139.7, { startTime: "09:00", endTime: "10:30" }),
+        place(2, "Garden", 139.7, { startTime: "10:00", endTime: "11:00" }),
+      ]),
+    );
     expect(result.issues.some((issue) => issue.kind === "time_overlap")).toBe(true);
     expect(result.scheduled).toBe(2);
   });
 
   it("reports invalid time ranges and excessive daily stops", () => {
-    const stops = Array.from({ length: 8 }, (_, index) =>
-      place(index + 1, "Stop " + index, 139.7),
-    );
+    const stops = Array.from({ length: 8 }, (_, index) => place(index + 1, "Stop " + index, 139.7));
     stops[0]!.startTime = "12:30";
     stops[0]!.endTime = "11:00";
     const result = checkDayConflicts(day(stops));
@@ -68,10 +66,12 @@ describe("read-only itinerary planning", () => {
   });
 
   it("warns about a transfer that cannot fit the walking heuristic", () => {
-    const result = checkDayConflicts(day([
-      place(1, "Stop A", 139.0, { startTime: "09:00", endTime: "09:30" }),
-      place(2, "Stop B", 140.0, { startTime: "10:00", endTime: "11:00" }),
-    ]));
+    const result = checkDayConflicts(
+      day([
+        place(1, "Stop A", 139.0, { startTime: "09:00", endTime: "09:30" }),
+        place(2, "Stop B", 140.0, { startTime: "10:00", endTime: "11:00" }),
+      ]),
+    );
     const transfer = result.issues.find((issue) => issue.kind === "transfer_risk");
     expect(transfer?.straight_line_km).toBeGreaterThan(50);
     expect(transfer?.walk_heuristic_minutes).toBeGreaterThan(30);
@@ -79,7 +79,7 @@ describe("read-only itinerary planning", () => {
 
   it("suggests a shorter proximity ordering without mutating the input", () => {
     const source = day([
-      place(1, "A", 139.00),
+      place(1, "A", 139.0),
       place(2, "D", 139.08),
       place(3, "B", 139.01),
       place(4, "C", 139.02),
@@ -88,8 +88,9 @@ describe("read-only itinerary planning", () => {
     const result = suggestProximityOrder(source);
     expect(result.current_order).toEqual(["A", "D", "B", "C"]);
     expect(result.proposed_proximity_order).toEqual(["A", "B", "C", "D"]);
-    expect(result.estimated_straight_line_km_after)
-      .toBeLessThan(result.estimated_straight_line_km_before);
+    expect(result.estimated_straight_line_km_after).toBeLessThan(
+      result.estimated_straight_line_km_before,
+    );
     expect(result.changed).toBe(true);
     expect(JSON.stringify(source)).toBe(before);
   });
@@ -125,18 +126,14 @@ describe("read-only itinerary planning", () => {
       place(3, "Missing coordinates"),
     ]);
     const result = suggestProximityOrder(source);
-    expect(result.missing_geocoordinates).toEqual([
-      "Invalid coordinates",
-      "Missing coordinates",
-    ]);
+    expect(result.missing_geocoordinates).toEqual(["Invalid coordinates", "Missing coordinates"]);
     expect(result.current_order).toEqual(result.proposed_proximity_order);
   });
 
   it("does not treat a Disney Store as a booked theme park", () => {
-    const result = suggestProximityOrder(day([
-      place(1, "Disney Store Shibuya", 139.0),
-      place(2, "Cafe", 139.02),
-    ]));
+    const result = suggestProximityOrder(
+      day([place(1, "Disney Store Shibuya", 139.0), place(2, "Cafe", 139.02)]),
+    );
     expect(result.fixed_places_preserved).toEqual([]);
   });
 });
