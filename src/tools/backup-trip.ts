@@ -20,7 +20,7 @@ export async function saveTripBackup(
   ctx: AppContext,
   trip: TripPlan,
   label = "Manual snapshot",
-): Promise<Omit<BackupRecord, "sections">> {
+): Promise<Omit<BackupRecord, "snapshot">> {
   const record: BackupRecord = {
     backup_id: newStateId(),
     trip_key: trip.key,
