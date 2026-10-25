@@ -86,13 +86,22 @@ export async function backupTrip(ctx: AppContext, args: Args) {
         const { snapshot: _snapshot, ...info } = backup;
         backups.push(info);
       }
-      result = { trip_key: args.trip_key, backups, restore_scope: "itinerary.sections",
-        storage_notice: "Retain WANDERLOG_MCP_STATE_KEY and use a persistent local volume." };
+      result = {
+        trip_key: args.trip_key,
+        backups,
+        restore_scope: "itinerary.sections",
+        storage_notice: "Retain WANDERLOG_MCP_STATE_KEY and use a persistent local volume.",
+      };
     } else {
       const trip = await ctx.tripCache.get(args.trip_key);
-      result = { created: true, backup: await saveTripBackup(ctx, trip, args.label),
-        archived_scope: "full TripPlan snapshot", restore_scope: "itinerary.sections",
-        storage_notice: "A persistent local volume and the same encryption key are required for later restores." };
+      result = {
+        created: true,
+        backup: await saveTripBackup(ctx, trip, args.label),
+        archived_scope: "full TripPlan snapshot",
+        restore_scope: "itinerary.sections",
+        storage_notice:
+          "A persistent local volume and the same encryption key are required for later restores.",
+      };
     }
     return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
   } catch (error) {
