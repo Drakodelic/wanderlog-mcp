@@ -51,10 +51,10 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
     if ((args.action ?? "preview") === "preview") {
       const current = await ctx.tripCache.get(args.trip_key);
       const protections = await getProtections(ctx, args.trip_key);
-      const matchesTripIdentity = current.id === backup.snapshot.id &&
-        current.key === backup.snapshot.key;
-      const matchesTripDates = current.startDate === backup.start_date &&
-        current.endDate === backup.end_date;
+      const matchesTripIdentity =
+        current.id === backup.snapshot.id && current.key === backup.snapshot.key;
+      const matchesTripDates =
+        current.startDate === backup.start_date && current.endDate === backup.end_date;
       const changedProtected: string[] = [];
       const protectedSectionTypes = new Set(["hotels", "flights", "transit", "rentalCars"]);
       const reservedBlockTypes = new Set(["flight", "ferry", "bus", "train", "rentalCar"]);
@@ -212,10 +212,12 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
       );
     }
     return {
-      content: [{
-        type: "text" as const,
-        text: JSON.stringify({ ...result, verified_by_fresh_remote_read: true }, null, 2),
-      }],
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify({ ...result, verified_by_fresh_remote_read: true }, null, 2),
+        },
+      ],
     };
   } catch (error) {
     const message =
