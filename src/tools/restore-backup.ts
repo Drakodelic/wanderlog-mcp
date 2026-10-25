@@ -70,8 +70,12 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
           const futureSection = backup.sections.find((candidate) =>
             candidate.blocks.some((candidateBlock) => candidateBlock.id === block.id),
           );
-          if (!restored || !futureSection || futureSection.id !== section.id ||
-              stateHash(restored) !== stateHash(block)) {
+          if (
+            !restored ||
+            !futureSection ||
+            futureSection.id !== section.id ||
+            stateHash(restored) !== stateHash(block)
+          ) {
             const name = isPlaceBlock(block) ? block.place.name : block.type + " #" + block.id;
             changedProtected.push(name);
           }
