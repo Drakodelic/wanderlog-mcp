@@ -25,9 +25,10 @@ export async function checkConflicts(ctx: AppContext, args: Args) {
     const result = { days: sections.map(checkDayConflicts) };
     return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
   } catch (error) {
-    const message = error instanceof WanderlogError
-      ? error.toUserMessage()
-      : "Unexpected error: " + (error as Error).message;
+    const message =
+      error instanceof WanderlogError
+        ? error.toUserMessage()
+        : "Unexpected error: " + (error as Error).message;
     return { content: [{ type: "text" as const, text: message }], isError: true };
   }
 }
