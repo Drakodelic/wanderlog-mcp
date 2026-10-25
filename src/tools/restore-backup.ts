@@ -46,6 +46,8 @@ type Args = {
 export async function restoreBackup(ctx: AppContext, args: Args) {
   try {
     const backup = await readTripBackup(ctx, args.trip_key, args.backup_id);
+    const backupSections = backup.snapshot.itinerary.sections;
+    const backupSectionsHash = stateHash(backupSections);
     if ((args.action ?? "preview") === "preview") {
       const current = await ctx.tripCache.get(args.trip_key);
       const protections = await getProtections(ctx, args.trip_key);
@@ -64,10 +66,10 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
             }
           }
           if (!protectedBlock) continue;
-          const restored = backup.sections
+          const restored = backupSections
             .flatMap((candidate) => candidate.blocks)
             .find((candidate) => candidate.id === block.id);
-          const futureSection = backup.sections.find((candidate) =>
+          const futureSection = backupSections.find((candidate) =>
             candidate.blocks.some((candidateBlock) => candidateBlock.id === block.id),
           );
           if (
@@ -103,7 +105,7 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
                 expires_at: record.expires_at,
                 from_backup: args.backup_id,
                 current_sections: current.itinerary.sections.length,
-                backup_sections: backup.sections.length,
+                backup_sections: backupSections.length,
                 protected_places_affected: changedProtected,
                 can_apply: changedProtected.length === 0,
                 requires_explicit_confirmation: true,
@@ -152,6 +154,9 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
           "The itinerary or reservation protections changed; create a new restore preview.",
         );
       }
+      if (current.id !== backup.snapshot.id || current.key !== backup.snapshot.key) {
+        throw new WanderlogValidationError("Backup trip identity differs from the current trip.");
+      }
       if (current.startDate !== backup.start_date || current.endDate !== backup.end_date) {
         throw new WanderlogValidationError(
           "Backup trip dates differ from the current trip; restore is blocked.",
@@ -163,11 +168,11 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
         "Automatic backup before restore " + args.backup_id,
       );
       const original = structuredClone(current.itinerary.sections);
-      const replacement = structuredClone(backup.sections);
+      const replacement = structuredClone(backupSections);
       if (stateHash(original) !== stateHash(replacement)) {
         await submit([{ p: ["itinerary", "sections"], od: original, oi: replacement }]);
       }
-      if (stateHash(entry.snapshot.itinerary.sections) !== backup.sha256) {
+      if (stateHash(entry.snapshot.itinerary.sections) !== backupSectionsHash) {
         ctx.tripCache.invalidate(args.trip_key);
         throw new WanderlogValidationError(
           "Restore may have been submitted but verification failed. Inspect the trip before retrying.",
@@ -180,7 +185,31 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
         verified_against_local_cache: true,
       };
     });
-    return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    // A successful ShareDB acknowledgement and local cache update do not prove
+    // the write persisted. Subscribe again to read a fresh remote snapshot.
+    ctx.tripCache.invalidate(args.trip_key);
+    let confirmed: boolean;
+    try {
+      const freshTrip = await ctx.tripCache.get(args.trip_key);
+      confirmed = stateHash(freshTrip.itinerary.sections) === backupSectionsHash;
+    } catch {
+      throw new WanderlogValidationError(
+        "Restore may have completed, but the remote post-write read failed. " +
+          "Inspect the current Wanderlog itinerary before retrying.",
+      );
+    }
+    if (!confirmed) {
+      throw new WanderlogValidationError(
+        "Restore may have completed, but a fresh remote read does not match the backup. " +
+          "Inspect the current itinerary before retrying.",
+      );
+    }
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({ ...result, verified_by_fresh_remote_read: true }, null, 2),
+      }],
+    };
   } catch (error) {
     const message =
       error instanceof WanderlogError
