@@ -51,6 +51,10 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
     if ((args.action ?? "preview") === "preview") {
       const current = await ctx.tripCache.get(args.trip_key);
       const protections = await getProtections(ctx, args.trip_key);
+      const matchesTripIdentity = current.id === backup.snapshot.id &&
+        current.key === backup.snapshot.key;
+      const matchesTripDates = current.startDate === backup.start_date &&
+        current.endDate === backup.end_date;
       const changedProtected: string[] = [];
       const protectedSectionTypes = new Set(["hotels", "flights", "transit", "rentalCars"]);
       const reservedBlockTypes = new Set(["flight", "ferry", "bus", "train", "rentalCar"]);
@@ -93,6 +97,7 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
         protected_hash: stateHash(protections.ids),
         expires_at: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
         affected_protected: changedProtected,
+        // Date and identity changes must block preview approval as well as application.
       };
       await saveState(ctx, args.trip_key, "restore-previews", restoreToken, record);
       return {
@@ -107,7 +112,9 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
                 current_sections: current.itinerary.sections.length,
                 backup_sections: backupSections.length,
                 protected_places_affected: changedProtected,
-                can_apply: changedProtected.length === 0,
+                matches_trip_identity: matchesTripIdentity,
+                matches_trip_dates: matchesTripDates,
+                can_apply: changedProtected.length === 0 && matchesTripIdentity && matchesTripDates,
                 requires_explicit_confirmation: true,
               },
               null,
