@@ -9,9 +9,14 @@ import { getProtections } from "./advanced-edits.js";
 import { readTripBackup, saveTripBackup } from "./backup-trip.js";
 
 type RestorePreview = {
-  trip_key: string; backup_id: string; restore_token: string;
-  current_hash: string; backup_hash: string; protected_hash: string;
-  expires_at: string; affected_protected: string[];
+  trip_key: string;
+  backup_id: string;
+  restore_token: string;
+  current_hash: string;
+  backup_hash: string;
+  protected_hash: string;
+  expires_at: string;
+  affected_protected: string[];
 };
 
 export const restoreBackupInputSchema = {
@@ -49,35 +54,62 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
         for (const block of section.blocks) {
           if (!isPlaceBlock(block)) continue;
           let protectedPlace = false;
-          try { assertUnprotected(block, protections.ids); }
-          catch { protectedPlace = true; }
+          try {
+            assertUnprotected(block, protections.ids);
+          } catch {
+            protectedPlace = true;
+          }
           if (!protectedPlace) continue;
-          const restored = backup.sections.flatMap((section) => section.blocks)
+          const restored = backup.sections
+            .flatMap((section) => section.blocks)
             .find((candidate) => candidate.id === block.id);
           const found = findBlockById(current, block.id);
           const future = backup.sections.find((section) =>
             section.blocks.some((candidate) => candidate.id === block.id),
           );
-          if (!restored || !future || !found ||
-              future.id !== found.section.id ||
-              stateHash(restored) !== stateHash(block)) changedProtected.push(block.place.name);
+          if (
+            !restored ||
+            !future ||
+            !found ||
+            future.id !== found.section.id ||
+            stateHash(restored) !== stateHash(block)
+          )
+            changedProtected.push(block.place.name);
         }
       }
       const restoreToken = newStateId();
       const record: RestorePreview = {
-        trip_key: args.trip_key, backup_id: args.backup_id, restore_token: restoreToken,
+        trip_key: args.trip_key,
+        backup_id: args.backup_id,
+        restore_token: restoreToken,
         current_hash: stateHash(current.itinerary.sections),
-        backup_hash: backup.sha256, protected_hash: stateHash(protections.ids),
+        backup_hash: backup.sha256,
+        protected_hash: stateHash(protections.ids),
         expires_at: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
         affected_protected: changedProtected,
       };
       await saveState(ctx, args.trip_key, "restore-previews", restoreToken, record);
-      return { content: [{ type: "text" as const, text: JSON.stringify({
-        restore_token: restoreToken, expires_at: record.expires_at,
-        from_backup: args.backup_id, current_sections: current.itinerary.sections.length,
-        backup_sections: backup.sections.length, protected_places_affected: changedProtected,
-        can_apply: changedProtected.length === 0, requires_explicit_confirmation: true,
-      }, null, 2) }] };
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                restore_token: restoreToken,
+                expires_at: record.expires_at,
+                from_backup: args.backup_id,
+                current_sections: current.itinerary.sections.length,
+                backup_sections: backup.sections.length,
+                protected_places_affected: changedProtected,
+                can_apply: changedProtected.length === 0,
+                requires_explicit_confirmation: true,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
     }
 
     if (!args.confirm_destructive || !args.restore_token) {
@@ -87,22 +119,31 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
     }
 
     const previous = await loadState<RestorePreview>(
-      ctx, args.trip_key, "restore-previews", args.restore_token,
+      ctx,
+      args.trip_key,
+      "restore-previews",
+      args.restore_token,
     );
-    if (previous.backup_id !== args.backup_id ||
-        previous.trip_key !== args.trip_key ||
-        previous.restore_token !== args.restore_token ||
-        Date.parse(previous.expires_at) <= Date.now() ||
-        previous.affected_protected.length > 0) {
-      throw new WanderlogValidationError("Restore preview invalid, expired, or has protected conflicts.");
+    if (
+      previous.backup_id !== args.backup_id ||
+      previous.trip_key !== args.trip_key ||
+      previous.restore_token !== args.restore_token ||
+      Date.parse(previous.expires_at) <= Date.now() ||
+      previous.affected_protected.length > 0
+    ) {
+      throw new WanderlogValidationError(
+        "Restore preview invalid, expired, or has protected conflicts.",
+      );
     }
 
     const result = await submitOp(ctx, args.trip_key, async (entry, submit) => {
       const current = entry.snapshot;
       const protections = await getProtections(ctx, args.trip_key);
-      if (stateHash(protections.ids) !== previous.protected_hash ||
-          stateHash(current.itinerary.sections) !== previous.current_hash ||
-          backup.sha256 !== previous.backup_hash) {
+      if (
+        stateHash(protections.ids) !== previous.protected_hash ||
+        stateHash(current.itinerary.sections) !== previous.current_hash ||
+        backup.sha256 !== previous.backup_hash
+      ) {
         throw new WanderlogValidationError(
           "The itinerary or reservation protections changed; create a new restore preview.",
         );
@@ -113,7 +154,9 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
         );
       }
       const emergencyBackup = await saveTripBackup(
-        ctx, current, "Automatic backup before restore " + args.backup_id,
+        ctx,
+        current,
+        "Automatic backup before restore " + args.backup_id,
       );
       const original = structuredClone(current.itinerary.sections);
       const replacement = structuredClone(backup.sections);
@@ -127,16 +170,18 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
         );
       }
       return {
-        restored: true, backup_id: args.backup_id,
+        restored: true,
+        backup_id: args.backup_id,
         safety_backup_id: emergencyBackup.backup_id,
         verified_against_local_cache: true,
       };
     });
     return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
   } catch (error) {
-    const message = error instanceof WanderlogError
-      ? error.toUserMessage()
-      : "Unexpected error: " + (error as Error).message;
+    const message =
+      error instanceof WanderlogError
+        ? error.toUserMessage()
+        : "Unexpected error: " + (error as Error).message;
     return { content: [{ type: "text" as const, text: message }], isError: true };
   }
 }
