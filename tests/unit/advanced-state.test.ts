@@ -4,12 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AppContext } from "../../src/context.js";
 import type { TripPlan } from "../../src/types.js";
-import {
-  loadState, saveState, stateHash,
-} from "../../src/tools/advanced-state.js";
-import {
-  readTripBackup, saveTripBackup,
-} from "../../src/tools/backup-trip.js";
+import { loadState, saveState, stateHash } from "../../src/tools/advanced-state.js";
+import { readTripBackup, saveTripBackup } from "../../src/tools/backup-trip.js";
 import { restoreBackup } from "../../src/tools/restore-backup.js";
 
 const demoKey = "a".repeat(64);
@@ -17,25 +13,54 @@ let directory: string;
 let previousKey: string | undefined;
 let previousDirectory: string | undefined;
 const sampleTrip = (): TripPlan => ({
-  id: 1, key: "exampletrip", title: "Example trip", userId: 123,
-  privacy: "private", startDate: "2026-11-21", endDate: "2026-11-22",
-  days: 2, placeCount: 1, schemaVersion: 2,
-  createdAt: "", updatedAt: "",
+  id: 1,
+  key: "exampletrip",
+  title: "Example trip",
+  userId: 123,
+  privacy: "private",
+  startDate: "2026-11-21",
+  endDate: "2026-11-22",
+  days: 2,
+  placeCount: 1,
+  schemaVersion: 2,
+  createdAt: "",
+  updatedAt: "",
   itinerary: {
     sections: [
       {
-        id: 100, mode: "dayPlan", type: "normal", date: "2026-11-21",
-        heading: "Arrival", text: { ops: [{ insert: "Private itinerary note.\n" }] },
-        blocks: [{ id: 1, type: "place", place: {
-          name: "Museum", place_id: "example-1",
-        } }],
+        id: 100,
+        mode: "dayPlan",
+        type: "normal",
+        date: "2026-11-21",
+        heading: "Arrival",
+        text: { ops: [{ insert: "Private itinerary note.\n" }] },
+        blocks: [
+          {
+            id: 1,
+            type: "place",
+            place: {
+              name: "Museum",
+              place_id: "example-1",
+            },
+          },
+        ],
       },
       {
-        id: 101, mode: "placeList", type: "flights", date: null,
+        id: 101,
+        mode: "placeList",
+        type: "flights",
+        date: null,
         heading: "Flights",
-        blocks: [{ id: 10, type: "flight", flightInfo: {
-          airline: { name: "Test Airline", iata: "TA" }, number: "12",
-        } }],
+        blocks: [
+          {
+            id: 10,
+            type: "flight",
+            flightInfo: {
+              airline: { name: "Test Airline", iata: "TA" },
+              number: "12",
+            },
+          },
+        ],
       },
     ],
   },
@@ -70,30 +95,33 @@ describe("encrypted local advanced state", () => {
       note: "Sensitive note that must not be plaintext",
     });
     const payload = await readFile(
-      join(directory, "123", "exampletrip", "previews", "draft.json"), "utf8",
+      join(directory, "123", "exampletrip", "previews", "draft.json"),
+      "utf8",
     );
     expect(payload).not.toContain("Sensitive note");
     expect(await loadState(ctx, "exampletrip", "previews", "draft")).toEqual({
       note: "Sensitive note that must not be plaintext",
     });
-    await expect(loadState(context(sampleTrip(), 456), "exampletrip", "previews", "draft"))
-      .rejects.toThrow();
-    await expect(loadState(ctx, "anothertrip", "previews", "draft"))
-      .rejects.toThrow();
+    await expect(
+      loadState(context(sampleTrip(), 456), "exampletrip", "previews", "draft"),
+    ).rejects.toThrow();
+    await expect(loadState(ctx, "anothertrip", "previews", "draft")).rejects.toThrow();
   });
 
   it("rejects a changed encryption key", async () => {
     const ctx = context();
     await saveState(ctx, "exampletrip", "previews", "draft", { a: 1 });
     process.env.WANDERLOG_MCP_STATE_KEY = "b".repeat(64);
-    await expect(loadState(ctx, "exampletrip", "previews", "draft"))
-      .rejects.toThrow(/decrypt|verify/);
+    await expect(loadState(ctx, "exampletrip", "previews", "draft")).rejects.toThrow(
+      /decrypt|verify/,
+    );
   });
 
   it("requires a stable encryption key", async () => {
     delete process.env.WANDERLOG_MCP_STATE_KEY;
-    await expect(saveState(context(), "exampletrip", "previews", "draft", { a: 1 }))
-      .rejects.toThrow(/WANDERLOG_MCP_STATE_KEY/);
+    await expect(
+      saveState(context(), "exampletrip", "previews", "draft", { a: 1 }),
+    ).rejects.toThrow(/WANDERLOG_MCP_STATE_KEY/);
   });
 
   it("backs up all section fields and detects tampered backup data", async () => {
@@ -116,7 +144,9 @@ describe("encrypted local advanced state", () => {
     flight.flightInfo = { airline: { name: "Different Airline", iata: "DA" }, number: "99" };
     const active = context(current);
     const response = await restoreBackup(active, {
-      trip_key: original.key, backup_id: backup.backup_id, action: "preview",
+      trip_key: original.key,
+      backup_id: backup.backup_id,
+      action: "preview",
     });
     expect(response.isError).toBeUndefined();
     const data = JSON.parse(response.content[0]!.text);
