@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import { isPlaceBlock } from "../types.js";
-import { findBlockById, submitOp } from "./shared.js";
+import { submitOp } from "./shared.js";
 import { loadState, newStateId, saveState, stateHash } from "./advanced-state.js";
 import { assertUnprotected } from "./advanced-plan.js";
 import { getProtections } from "./advanced-edits.js";
@@ -50,31 +50,31 @@ export async function restoreBackup(ctx: AppContext, args: Args) {
       const current = await ctx.tripCache.get(args.trip_key);
       const protections = await getProtections(ctx, args.trip_key);
       const changedProtected: string[] = [];
+      const protectedSectionTypes = new Set(["hotels", "flights", "transit", "rentalCars"]);
+      const reservedBlockTypes = new Set(["flight", "ferry", "bus", "train", "rentalCar"]);
       for (const section of current.itinerary.sections) {
         for (const block of section.blocks) {
-          if (!isPlaceBlock(block)) continue;
-          let protectedPlace = false;
-          try {
-            assertUnprotected(block, protections.ids);
-          } catch {
-            protectedPlace = true;
+          let protectedBlock =
+            protectedSectionTypes.has(section.type) || reservedBlockTypes.has(block.type);
+          if (isPlaceBlock(block)) {
+            try {
+              assertUnprotected(block, protections.ids);
+            } catch {
+              protectedBlock = true;
+            }
           }
-          if (!protectedPlace) continue;
+          if (!protectedBlock) continue;
           const restored = backup.sections
-            .flatMap((section) => section.blocks)
+            .flatMap((candidate) => candidate.blocks)
             .find((candidate) => candidate.id === block.id);
-          const found = findBlockById(current, block.id);
-          const future = backup.sections.find((section) =>
-            section.blocks.some((candidate) => candidate.id === block.id),
+          const futureSection = backup.sections.find((candidate) =>
+            candidate.blocks.some((candidateBlock) => candidateBlock.id === block.id),
           );
-          if (
-            !restored ||
-            !future ||
-            !found ||
-            future.id !== found.section.id ||
-            stateHash(restored) !== stateHash(block)
-          )
-            changedProtected.push(block.place.name);
+          if (!restored || !futureSection || futureSection.id !== section.id ||
+              stateHash(restored) !== stateHash(block)) {
+            const name = isPlaceBlock(block) ? block.place.name : block.type + " #" + block.id;
+            changedProtected.push(name);
+          }
         }
       }
       const restoreToken = newStateId();
